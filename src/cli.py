@@ -1,7 +1,7 @@
 import sys
 import argparse
 from pathlib import Path
-from checker import Checker
+from checker import FileChecker
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Netlist Checker')
@@ -11,11 +11,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
     input = args.input
 
-    output = sys.stdout
+    output = sys.stdout         
     if args.output:
-        pass
-
-    checker = Checker(input)
-    report = checker.check()
-
-    print(report, file=output)
+        with open(args.output, 'w') as output_file:
+            checker = FileChecker(input)
+            report = checker.check()
+            print(report, file=output_file)
+    else:
+        checker = FileChecker(input)
+        report = checker.check()
+        print(report)
