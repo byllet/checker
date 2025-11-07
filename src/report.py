@@ -20,53 +20,46 @@ class Error(Enum):
 
 
 class Report:
-    def __init__(self, report_entries : List["ReportEntry"]):
-        self.report_entries = report_entries
-        self.__get_state()
+    def __init__(self, report_entries: List["ReportEntry"]):
+        self.__report_entries = report_entries
+        self.__status = Status.OK
+        self.__change_status()
 
-
-    def __get_state(self):
-        if len(self.report_entries) > 0:
-            self.status = Status.ERROR
+    def __change_status(self):
+        if len(self.__report_entries) > 0:
+            self.__status = Status.ERROR
         
     def to_dict(self):
-        res = {}
-        res["status"] = self.status
-        res["errors"] = []
+        return {"status": self.__status, "errors": self.__report_entries}
 
-        for report in self.report_entries:
-            entry = f"error: {report.error} \n" \
-                    f"line: {report.line} \n" \
-                    f"location: {report.location} \n" \
-                    f"message: {report.message}"
-            res["errors"].append(entry)
-        
-        return res
-
-    
     def __str__(self):
-        d = self.to_dict()
-        str = f"status: {d["status"]}\n"
-        for entry in d["errors"]:
-            str += entry
+        str = f"status: {self.__status}\n"
+        for i, entry in enumerate(self.__report_entries):
+            str += f"error_{i}: " + "{\n" +  f"{entry.error}\n"
+            if entry.line:
+                str += f"line: {entry.line}\n" 
+            if entry.location:
+                str += f"location: {entry.location}\n" 
+            if entry.message:
+                str += f"message: {entry.message}\n"
+            str += "}\n"
         
         return str
 
 
 @dataclass
 class ReportEntry:
-    error : Error = None
-    message : Optional[str] = None
+    error: Error
+    message: Optional[str] = None
     location: Optional[str] = None
-    line : Optional[int] = None
-
+    line: Optional[int] = None
 
 
 class Reporter:
     def __init__(self):
         self.__reports = []
 
-    def add_error(self, report_entry : ReportEntry):
+    def add_error(self, report_entry: ReportEntry):
         self.__reports.append(report_entry)
 
     def get_report(self) -> Report:
