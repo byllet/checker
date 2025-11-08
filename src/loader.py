@@ -11,15 +11,15 @@ class Data:
         self._ast_tree = None
         self._parse_tree = None
         self._netlist: NetlistProject = None
-        self._errors: dict[Error, ReportEntry] = {}
+        self._errors_after_parse: dict[Error, ReportEntry] = {}
 
     @property
     def netlist(self):
         return self._netlist
 
     @property
-    def errors(self):
-        return self._errors
+    def errors_after_parse(self):
+        return self._errors_after_parse
 
 
 class FileData(Data):

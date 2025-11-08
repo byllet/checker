@@ -9,8 +9,8 @@ def check_any(data: Data, reporter: Reporter) -> bool:
     return False
 
 def check_with_errors(data: Data, reporter: Reporter):
-    if Error.DUPLICATE_NAME in data.errors:
-        reporter.add_error(ReportEntry(Error.DUPLICATE_NAME, message="bla bla"))
+    if Error.DUPLICATE_NAME in data.errors_after_parse:
+        reporter.add_error(data.errors_after_parse[Error.DUPLICATE_NAME])
         return True
     return False
     
