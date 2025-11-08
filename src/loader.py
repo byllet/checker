@@ -3,7 +3,7 @@ from report import Error, ReportEntry
 
 
 def parse(path):
-    return [None, None, None, {Error.DUPLICATE_NAME: ReportEntry(error=Error.DUPLICATE_NAME)}]
+    return [None, None, NetlistProject("nl"), {Error.DUPLICATE_NAME: ReportEntry(error=Error.DUPLICATE_NAME)}]
     
 
 class Data:
@@ -28,7 +28,7 @@ class FileData(Data):
         self.__load_from_file(data_path)
     
     def __load_from_file(self, data_path: str):
-        self._ast_tree, self._parse_tree, self._netlist, self._errors = parse(data_path)
+        self._ast_tree, self._parse_tree, self._netlist, self._errors_after_parse = parse(data_path)
 
 
 class NetlistData(Data):
