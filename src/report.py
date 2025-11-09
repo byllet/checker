@@ -19,6 +19,25 @@ class Error(Enum):
     DUPLICATE_NAME = "DUPLICATE_NAME"
 
 
+@dataclass
+class ReportEntry:
+    error: Error
+    message: Optional[str] = None
+    location: Optional[str] = None
+    line: Optional[int] = None
+
+    def __str__(self) -> str:
+        str = f"{self.error}\n"
+        if self.line:
+            str += f"line: {self.line}\n" 
+        if self.location:
+            str += f"location: {self.location}\n" 
+        if self.message:
+            str += f"message: {self.message}\n"
+        
+        return str[:-1]
+
+
 class Report:
     def __init__(self, report_entries: List["ReportEntry"]):
         self.__report_entries = report_entries
@@ -33,26 +52,11 @@ class Report:
         return {"status": self.__status, "errors": self.__report_entries}
 
     def __str__(self):
-        str = f"status: {self.__status}\n"
+        out = f"status: {self.__status}\n"
         for i, entry in enumerate(self.__report_entries):
-            str += f"error_{i}: " + "{\n" +  f"{entry.error}\n"
-            if entry.line:
-                str += f"line: {entry.line}\n" 
-            if entry.location:
-                str += f"location: {entry.location}\n" 
-            if entry.message:
-                str += f"message: {entry.message}\n"
-            str += "}\n"
-        
-        return str
+            out += f"error_{i}: " + "{\n" + str(entry) + "}\n"
 
-
-@dataclass
-class ReportEntry:
-    error: Error
-    message: Optional[str] = None
-    location: Optional[str] = None
-    line: Optional[int] = None
+        return out[:-1]
 
 
 class Reporter:
