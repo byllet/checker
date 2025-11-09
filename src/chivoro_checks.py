@@ -53,20 +53,69 @@ if (__name__ == "__main__"):
     transistor = PRIMITIVES["transistor"]
     #------------
 
-    nl = NetlistProject("netlist", primitive_blocks=PRIMITIVES)
-    block1 = nl.add_block("block1")
-    block2 = nl.add_block("block2")
-    block3 = nl.add_block("block3")
+    # несвязный граф 
+    nl1 = NetlistProject("netlist_without_connections", primitive_blocks=PRIMITIVES)
+    block1 = nl1.add_block("block1")
+    block2 = nl1.add_block("block2")
+    block3 = nl1.add_block("block3")
 
-    b2 = nl.add_instance_to_block("block1", "b2", "block2")
-    b3 = nl.add_instance_to_block("block2", "b3", "block3")
-    b_test = nl.add_instance_to_block("block1", "b_test", "block3")
-    b_error = nl.add_instance_to_block("block3", "b_error", "block1")
-
-    data_example = NetlistData(nl)
+    data1 = NetlistData(nl1)
     reporter = Reporter()
+    print(check_cycle_hierarchy(data1, reporter))
 
-    print(check_cycle_hierarchy(data_example, reporter))
-    # print(reporter.get_report().to_dict())
+    # связный граф без цикл.зависимостей 
+    nl2 = NetlistProject("netlist_without_cycles", primitive_blocks=PRIMITIVES)
+    block1 = nl2.add_block("block1")
+    block2 = nl2.add_block("block2")
+    block3 = nl2.add_block("block3")
+    
+    b2 = nl2.add_instance_to_block("block1", "b2", "block2")
+    b3 = nl2.add_instance_to_block("block2", "b3", "block3")
+    b3_test = nl2.add_instance_to_block("block1", "b3_test", "block3")
+    data2 = NetlistData(nl2)
+    reporter = Reporter()
+    print(check_cycle_hierarchy(data2, reporter))
+   
+    #связный граф с циклической зависимостью
+    nl3 = NetlistProject("netlist_with_cycles", primitive_blocks=PRIMITIVES)
+    block1 = nl3.add_block("block1")
+    block2 = nl3.add_block("block2")
+    block3 = nl3.add_block("block3")
+    
+    b2 = nl3.add_instance_to_block("block1", "b2", "block2")
+    b3 = nl3.add_instance_to_block("block2", "b3", "block3")
+    b3_error = nl3.add_instance_to_block("block3", "b3_error", "block1")
+    data3 = NetlistData(nl3)
+    reporter = Reporter()
+    print(check_cycle_hierarchy(data3, reporter))
+    
+    #граф с несколькими компонентами связности
+    nl4 = NetlistProject("test_netlist", primitive_blocks=PRIMITIVES)
+    block1 = nl4.add_block("block1")
+    block2 = nl4.add_block("block2")
+    block3 = nl4.add_block("block3")
+    block4 = nl4.add_block("block4")
+    block5 = nl4.add_block("block5")
+    block6 = nl4.add_block("block6")
+
+    b2 = nl4.add_instance_to_block("block1", "b2", "block2")
+    b3 = nl4.add_instance_to_block("block2", "b3", "block3")
+    b5 = nl4.add_instance_to_block("block4", "b5", "block5")
+    b6 = nl4.add_instance_to_block("block5", "b5", "block6")
+
+    data4 = NetlistData(nl4)
+    reporter = Reporter()
+    print(check_cycle_hierarchy(data4, reporter))
+
+    # проверка корректности заполнения visited
+    nl5 = NetlistProject("simple_netlist", primitive_blocks = PRIMITIVES)
+    block1 = nl5.add_block("block1")
+    block2 = nl5.add_block("block2")
+    
+    b2 = nl5.add_instance_to_block("block1", "b2", "block2")
+    b1 = nl5.add_instance_to_block("block2", "b1", "block1")
+    data5 = NetlistData(nl5)
+    reporter = Reporter()
+    print(check_cycle_hierarchy(data5, reporter))
 
 
