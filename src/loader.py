@@ -1,11 +1,7 @@
 from data import NetlistProject
 from report import Error, ReportEntry
+from parser import parse
 
-
-def parse(path):
-    return [None, None, NetlistProject("nl"), {Error.DUPLICATE_NAME: ReportEntry(error=Error.DUPLICATE_NAME), 
-                                               Error.SYNTAX_ERROR: ReportEntry(error=Error.SYNTAX_ERROR, line=1000)}]
-    
 
 class Data:
     def __init__(self):

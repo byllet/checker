@@ -5,15 +5,13 @@ from checker import FileChecker
 
 
 def main(input: str, output: str):
+    checker = FileChecker(input)
+    report = checker.check()
+
     if output:
         with open(output, 'w') as output_file:
-            checker = FileChecker(input)
-            report = checker.check()
             print(report, file=output_file)
     else:
-        checker = FileChecker(input)
-        report = checker.check()
-
         print(report)
 
 
