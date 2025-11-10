@@ -1,8 +1,15 @@
-from loader import Data
-from report import Reporter, ReportEntry, Error
+from syntax_check import check_syntax
+from network_check import check_network_connection, check_network_correctness
+from hierarchy_loop_and_incompletence import check_cycle_hierarchy, check_incomplete_hierarchy
+from scheme_check import check_pin_connection, check_subcircuit_correctness
 
-def test_check(data: Data, reporter: Reporter) -> bool:
-    reporter.add_error(ReportEntry(Error.SYNTAX_ERROR, "something_bad", "main", 100))
-    return False
 
-STRATEGIES = [test_check]
+STRATEGIES_FILE = [check_syntax, 
+                   check_incomplete_hierarchy,
+                   check_cycle_hierarchy,
+                   check_pin_connection,
+                   check_subcircuit_correctness,
+                   check_network_correctness, 
+                   check_network_connection]
+
+STRATEGIES_NETLIST = STRATEGIES_FILE
