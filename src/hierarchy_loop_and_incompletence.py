@@ -7,8 +7,8 @@ def check_incomplete_hierarchy(data: Data, reporter: Reporter):
     """Проверка на неполноту иерархии"""
     if Error.MISSING_BLOCK in data.errors_after_parse:
         reporter.add_error(data.errors_after_parse[Error.MISSING_BLOCK])
-        return True
-    return False
+        return False
+    return True
 
 
 def check_cycle_hierarchy(data: Data, reporter: Reporter):
@@ -20,15 +20,15 @@ def check_cycle_hierarchy(data: Data, reporter: Reporter):
         if block not in global_visited:
             component_visited = set()
             recursion_stack = set()
-            if has_cycle_in_component(block, component_visited, recursion_stack):
+            if __has_cycle_in_component(block, component_visited, recursion_stack):
                 reporter.add_error(Error.HIERARCHY_CYCLE)
-                return True
+                return False
                 
             global_visited.update(component_visited)
     
-    return False
+    return True
 
-def has_cycle_in_component(block: Block, visited, recursion_stack):
+def __has_cycle_in_component(block: Block, visited, recursion_stack):
     """Проверка внутри компоненты связности"""
     if block in recursion_stack:
         return True
@@ -39,8 +39,9 @@ def has_cycle_in_component(block: Block, visited, recursion_stack):
     recursion_stack.add(block)
 
     for child in block.instances.values():
-        if has_cycle_in_component(child.type, visited, recursion_stack):
+        if __has_cycle_in_component(child.type, visited, recursion_stack):
             return True
     
     recursion_stack.remove(block)
     return False
+
