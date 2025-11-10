@@ -1,6 +1,6 @@
-import sys
 import argparse
 from pathlib import Path
+
 from checker import FileChecker
 
 
@@ -14,7 +14,7 @@ def main(input: str, output: str):
         checker = FileChecker(input)
         report = checker.check()
 
-        print(report.to_dict()["errors"][1])
+        print(report)
 
 
 if __name__ == "__main__":
@@ -24,4 +24,3 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     main(args.input, args.output)
-

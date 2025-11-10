@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from enum import Enum
-from data import Block
 from typing import  Optional, List
 
 
@@ -54,7 +53,7 @@ class Report:
     def __str__(self):
         out = f"status: {self.__status}\n"
         for i, entry in enumerate(self.__report_entries):
-            out += f"error_{i}: " + "{\n" + str(entry) + "}\n"
+            out += f"error_{i}: " + "{\n" + str(entry) + "\n}\n"
 
         return out[:-1]
 

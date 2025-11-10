@@ -1,10 +1,11 @@
 from copy import deepcopy
 from typing import  List
+
 from report import Reporter, Report
 from loader import Data, FileData, NetlistData
 from data import NetlistProject
-from config import STRATEGIES
 
+from config import STRATEGIES_FILE, STRATEGIES_NETLIST
 
 def _check(strategies: List[callable], data: Data) -> Report:
     reporter = Reporter()
@@ -20,7 +21,7 @@ def _check(strategies: List[callable], data: Data) -> Report:
 class FileChecker:
     def __init__(self, data_path: str):
         self.__data: Data = FileData(data_path=data_path)
-        self.__strategies = deepcopy(STRATEGIES)
+        self.__strategies = deepcopy(STRATEGIES_FILE)
 
     def check(self) -> Report:
         return _check(self.__strategies, self.__data)
@@ -32,7 +33,7 @@ class FileChecker:
 class NetlistChecker:
     def __init__(self, netlist: NetlistProject):
         self.__data = NetlistData(self.__netlist)
-        self.__strategies = [lambda data, reporter: False]
+        self.__strategies = deepcopy(STRATEGIES_NETLIST)
         self.__netlist = netlist
 
     def check(self) -> Report:
