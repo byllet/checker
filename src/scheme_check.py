@@ -14,7 +14,7 @@ def check_subcircuit_correctness(data: Data, reporter: Reporter) -> bool:
     """Функция проверки соответствия списка пинов инстанса подсхемы списку пинов блока этой подсхемы"""
     status = True
 
-    netlist = data.net_list
+    netlist = data.netlist
     if netlist is None:
         return status
 
@@ -70,7 +70,7 @@ def check_pin_connection(data: Data, reporter: Reporter) -> bool:
     2) Неподключённый пин инстанса"""
     status = True
 
-    netlist = data.net_list
+    netlist = data.netlist
     if netlist is None:
         return status
 
