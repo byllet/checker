@@ -306,7 +306,6 @@ class TestEdgeCases:
     
     @pytest.fixture
     def edge_case_project(self):
-        """Фикстура для тестов граничных случаев"""
         return NetlistProject("edge_case_test")
     
     def test_pin_cannot_be_connected_to_multiple_nets(self, edge_case_project):
