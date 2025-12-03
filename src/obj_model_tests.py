@@ -27,6 +27,15 @@ class TestNetlistProjectOperations:
         test_nl = NetlistProject("empty_project")
         assert test_nl.blocks == {}
         assert test_nl.name == "empty_project"
+    
+    def test_add_block_with_primitive_name(self, netlist_project):
+        """Тест создания блока с именем примитива"""
+        with pytest.raises(Exception, match="prim1 already exists"):
+            netlist_project.add_block("prim1")
+        
+        # Создание нового блока
+        netlist_project.add_block("main")
+        assert "main" in netlist_project.blocks
 
 
 class TestBlockOperations:
@@ -45,7 +54,7 @@ class TestBlockOperations:
         """Тест добавления повторяющегося блока"""
         netlist_project.add_block("main")
         with pytest.raises(Exception, match="main already exists in block test_project"):
-            netlist_project.add_block("main")
+          netlist_project.add_block("main")
     
     def test_rename_block(self, netlist_project):
         """Тест переименования блока"""
@@ -54,11 +63,25 @@ class TestBlockOperations:
         assert "test" in netlist_project.blocks
         assert "main" not in netlist_project.blocks
     
+    def test_rename_block_to_existing_name(self, netlist_project):
+        """Тест переименования блока на существующее имя"""
+        netlist_project.add_block("block1")
+        netlist_project.add_block("block2")
+        
+        with pytest.raises(Exception, match="block2 already exists"):
+            netlist_project.rename_block("block1", "block2")
+    
     def test_remove_block(self, netlist_project):
         """Тест удаления блока"""
         netlist_project.add_block("main")
         netlist_project.remove_block("main")
         assert "main" not in netlist_project.blocks
+    
+    def test_remove_nonexistent_block(self, netlist_project):
+        """Тест удаления несуществующего блока"""
+
+        with pytest.raises(Exception):
+            netlist_project.remove_block("nonexistent")
 
     def test_add_primitive(self, netlist_project):
         """Тест добавления примитива"""
@@ -72,13 +95,19 @@ class TestBlockOperations:
         prim = netlist_project.add_primitive_block("test_prim", primitive_pins=["in1", "in2", "out"])
         with pytest.raises(Exception, match="test_prim already exists in block test_project"):
             netlist_project.add_primitive_block("test_prim", primitive_pins=["in1", "in2", "out"])
+    
+    def test_add_primitive_with_mismatched_name(self, netlist_project):
+        """Тест добавления примитива с именем, не совпадающим с ключом"""
+        prim = netlist_project.add_primitive_block("test_prim", primitive_pins=["in1", "in2", "out"])
+        assert "test_prim" in netlist_project.blocks
+        assert prim.name == "test_prim"
+        assert netlist_project.blocks["test_prim"].name == "test_prim"
 
     def test_remove_primitive(self, netlist_project):
         """Тест удаления примитива"""
         netlist_project.remove_primitive_block("prim1")
         assert "prim1" not in netlist_project.blocks
-
-        
+    
 
 class TestPinOperations:
     """Тесты операций с пинами"""
@@ -102,7 +131,15 @@ class TestPinOperations:
         netlist_project.add_pin_to_block("main", "input1")
         netlist_project.rename_pin_in_block("main", "input1", "clock")
 
-        assert set(main_block.interface_pins.keys()) == {"clock"}        
+        assert set(main_block.interface_pins.keys()) == {"clock"}
+    
+    def test_rename_pin_to_existing_name(self, netlist_project, main_block):
+        """Тест переименования пина на существующее имя"""
+        netlist_project.add_pin_to_block("main", "pin1")
+        netlist_project.add_pin_to_block("main", "pin2")
+        
+        with pytest.raises(Exception, match="already exists"):
+            netlist_project.rename_pin_in_block("main", "pin1", "pin2")
     
     def test_remove_pin(self, netlist_project, main_block):
         """Тест удаления пина"""
@@ -110,6 +147,19 @@ class TestPinOperations:
         netlist_project.remove_pin_from_block("main", "input1")
         
         assert "input1" not in main_block.interface_pins
+    
+    def test_remove_pin_connected_to_net(self, netlist_project, main_block):
+        """Тест удаления пина, подключенного к сети"""
+        pin = netlist_project.add_pin_to_block("main", "input1")
+        net = netlist_project.add_net_to_block("main", "net1")
+        
+        netlist_project.connect_pin_to_net_in_block("main", "net1", pin)
+        assert pin.net == net
+        
+        netlist_project.remove_pin_from_block("main", "input1")
+        assert "input1" not in main_block.interface_pins
+        # Проверяем, что пин был отключен от сети
+        assert len(net.pins) == 0
 
 
 class TestInstanceOperations:
@@ -132,6 +182,14 @@ class TestInstanceOperations:
         netlist_project.rename_instance_in_block("main", "inst1", "inst1_renamed")
 
         assert set(main_block.instances.keys()) == {"inst1_renamed"}
+    
+    def test_rename_instance_to_existing_name(self, netlist_project, main_block):
+        """Тест переименования инстанса на существующее имя"""
+        netlist_project.add_instance_to_block("main", "inst1", "prim1")
+        netlist_project.add_instance_to_block("main", "inst2", "prim2")
+        
+        with pytest.raises(Exception, match="already exists"):
+            netlist_project.rename_instance_in_block("main", "inst1", "inst2")
 
     def test_remove_instance(self, netlist_project, main_block):
         """Тест удаления инстанса"""
@@ -139,12 +197,30 @@ class TestInstanceOperations:
         netlist_project.remove_instance_from_block("main", "inst1")
         
         assert set(main_block.instances.keys()) == set()
+    
+    def test_remove_instance_connected_to_nets(self, netlist_project, main_block):
+        """Тест удаления инстанса, подключенного к сетям"""
+        inst1 = netlist_project.add_instance_to_block("main", "inst1", "prim1")
+        net = netlist_project.add_net_to_block("main", "test_net")
+        
+        netlist_project.connect_pin_to_net_in_block("main", "test_net", inst1.interface_pins["in1"])
+        assert len(net.pins) == 1
+        
+        netlist_project.remove_instance_from_block("main", "inst1")
+        assert "inst1" not in main_block.instances
+        assert len(net.pins) == 0
 
     def test_add_duplicate_instance(self, netlist_project, main_block):
         """Тест добавления повторяющегося инстанса"""
         netlist_project.add_instance_to_block("main", "inst1", "prim1")
         with pytest.raises(Exception, match="inst1 already exists in block main"):
             netlist_project.add_instance_to_block("main", "inst1", "prim1")
+    
+    def test_add_instance_with_nonexistent_type(self, netlist_project, main_block):
+        """Тест добавления инстанса с несуществующим типом"""
+        with pytest.raises(Exception):
+            netlist_project.add_instance_to_block("main", "inst1", "nonexistent")
+
 
 class TestNetOperations:
     """Тесты операций с сетями"""
@@ -157,12 +233,36 @@ class TestNetOperations:
         assert net2.name == "net2"
         assert set(main_block.nets.keys()) == {"net1", "net2"}
     
+    def test_add_duplicate_net(self, netlist_project, main_block):
+        """Тест добавления повторяющейся сети"""
+        netlist_project.add_net_to_block("main", "net1")
+        with pytest.raises(Exception, match="net1 already exists in block main"):
+            netlist_project.add_net_to_block("main", "net1")
+    
     def test_rename_net(self, netlist_project, main_block):
         """Тест переименования сети"""
         netlist_project.add_net_to_block("main", "net1")
         netlist_project.rename_net_in_block("main", "net1", "net_renamed")
         assert set(main_block.nets.keys()) == {"net_renamed"}
+    
+    def test_rename_net_to_existing_name(self, netlist_project, main_block):
+        """Тест переименования сети на существующее имя"""
+        netlist_project.add_net_to_block("main", "net1")
+        netlist_project.add_net_to_block("main", "net2")
         
+        with pytest.raises(Exception):
+            netlist_project.rename_net_in_block("main", "net1", "net2")
+    
+    def test_rename_net_updates_pins_references(self, netlist_project, main_block):
+        """Тест обновления ссылок на сеть при переименовании"""
+        net = netlist_project.add_net_to_block("main", "old_net")
+        pin = netlist_project.add_pin_to_block("main", "pin1")
+        
+        netlist_project.connect_pin_to_net_in_block("main", "old_net", pin)
+        assert pin.net == net
+        
+        netlist_project.rename_net_in_block("main", "old_net", "new_net")
+        assert pin.net.name == "new_net"
     
     def test_remove_net(self, netlist_project, main_block):
         """Тест удаления сети"""
@@ -171,6 +271,18 @@ class TestNetOperations:
         netlist_project.remove_net_from_block("main", "net1")
         
         assert set(main_block.nets.keys()) == {"net2"}
+    
+    def test_remove_net_with_connected_pins(self, netlist_project, main_block):
+        """Тест удаления сети с подключенными пинами"""
+        pin = netlist_project.add_pin_to_block("main", "pin1")
+        net = netlist_project.add_net_to_block("main", "net1")
+        
+        netlist_project.connect_pin_to_net_in_block("main", "net1", pin)
+        assert pin.net == net
+        
+        netlist_project.remove_net_from_block("main", "net1")
+        assert "net1" not in main_block.nets
+        assert pin.net is None
 
 
 class TestConnections:
@@ -189,6 +301,52 @@ class TestConnections:
         assert inst1.interface_pins["in1"].net == net
         assert len(net.pins) == 2
     
+    def test_pin_update_after_primitive_delete(self, netlist_project, main_block):
+        """Тест отключения пинов инстанса от сети при удалении примитива"""
+        inst1 = netlist_project.add_instance_to_block("main", "inst1", "prim1")
+        test_net = netlist_project.add_net_to_block("main", "test_net")
+        
+        netlist_project.connect_pin_to_net_in_block("main", "test_net", inst1.interface_pins["in1"])
+        netlist_project.connect_pin_to_net_in_block("main", "test_net", inst1.interface_pins["out"])
+        
+        assert len(test_net.pins) == 2
+        
+        netlist_project.remove_block("prim1")
+
+        assert len(test_net.pins) == 0
+
+    def test_pin_update_after_block_delete(self, netlist_project, main_block):
+        """Тест отключения пинов инстанса от сети при удалении блока"""
+        custom1 = netlist_project.add_block("custom")
+        pin1 = netlist_project.add_pin_to_block("custom", "in1")
+        pin2 = netlist_project.add_pin_to_block("custom", "out")
+        inst1 = netlist_project.add_instance_to_block("main", "inst1", "custom")
+        
+        test_net = netlist_project.add_net_to_block("main", "test_net")
+        
+        netlist_project.connect_pin_to_net_in_block("main", "test_net", inst1.interface_pins["in1"])
+        netlist_project.connect_pin_to_net_in_block("main", "test_net", inst1.interface_pins["out"])
+        netlist_project.add_instance_to_block("custom", "test1", "prim1")
+        netlist_project.remove_primitive_block("prim1")
+        
+        assert len(test_net.pins) == 2
+        
+        netlist_project.remove_block("custom")
+        
+        assert len(test_net.pins) == 0
+
+
+
+    def test_connect_nonexistent_pin_to_net(self, netlist_project, main_block):
+        """Тест подключения несуществующего пина к сети"""
+        net = netlist_project.add_net_to_block("main", "test_net")
+        
+        # Создаем фиктивный пин, который не принадлежит блоку
+        fake_pin = Pin("fake_pin", None)
+        
+        with pytest.raises(Exception):
+            netlist_project.connect_pin_to_net_in_block("main", "test_net", fake_pin)
+    
     def test_disconnect_pin_from_net(self, netlist_project, main_block):
         """Тест отключения пина от сети"""
         input_pin = netlist_project.add_pin_to_block("main", "input")
@@ -200,6 +358,13 @@ class TestConnections:
         netlist_project.disconnect_pin_from_net_in_block("main", "test_net", "input")
         assert input_pin.net is None
         assert len(net.pins) == 0
+    
+    def test_disconnect_nonexistent_pin(self, netlist_project, main_block):
+        """Тест отключения несуществующего пина от сети"""
+        net = netlist_project.add_net_to_block("main", "test_net")
+        
+        with pytest.raises(Exception):
+            netlist_project.disconnect_pin_from_net_in_block("main", "test_net", "nonexistent")
 
 
 class TestPrimitiveBlocks:
@@ -223,14 +388,13 @@ class TestPrimitiveBlocks:
         
         with pytest.raises(Exception, match="Cannot add net in primitive block prim1"):
             prim1_block.add_net("new_net")
-
+    
 
 class TestPinUpdating:
     """Тесты обновления пинов"""
 
     def test_pin_updating(self, netlist_project, main_block):
         """Тест обновления пинов при удалении и переименовании"""
-
         netlist_project.add_block("custom")
         netlist_project.add_pin_to_block("custom", "a")
         netlist_project.add_pin_to_block("custom", "b")
@@ -242,6 +406,25 @@ class TestPinUpdating:
         netlist_project.rename_pin_in_block("custom", "a", "d")   
 
         assert set(instance.interface_pins.keys()) == {"d", "b"}
+    
+    def test_pin_updating_in_multiple_instances(self, netlist_project, main_block):
+        """Тест обновления пинов во множестве инстансов"""
+        netlist_project.add_block("custom")
+        netlist_project.add_pin_to_block("custom", "a")
+        netlist_project.add_pin_to_block("custom", "b")
+        netlist_project.add_pin_to_block("custom", "c")
+
+        inst1 = netlist_project.add_instance_to_block("main", "inst1", "custom")
+        inst2 = netlist_project.add_instance_to_block("main", "inst2", "custom")
+        inst3 = netlist_project.add_instance_to_block("main", "inst3", "custom")
+
+
+        netlist_project.remove_pin_from_block("custom", "c")
+        netlist_project.rename_pin_in_block("custom", "a", "d")
+
+        # Проверяем, что все инстансы обновились
+        for inst in [inst1, inst2, inst3]:
+            assert set(inst.interface_pins.keys()) == {"d", "b"}
     
     def test_pin_update_after_net_delete(self, netlist_project, main_block):
         """Тест отключения пинов при удалении сети"""
@@ -258,7 +441,6 @@ class TestPinUpdating:
         netlist_project.remove_net_from_block("main", "test_net")
         assert pin1.net is None
         assert pin2.net is None
-
     
     def test_pin_update_after_instance_delete(self, netlist_project, main_block):
         """Тест отключения пинов инстанса от сети при удалении инстанса"""
@@ -272,33 +454,60 @@ class TestPinUpdating:
         
         netlist_project.remove_instance_from_block("main", "inst1")
         assert len(test_net.pins) == 0
+    
 
+class TestUpdates:
+    """Тесты комплексного обновления при изменении типов"""
+    
+    def test_instance_update_after_pin_renaming_in_type(self, netlist_project, main_block):
+        """Тест обновления инстанса при переименовании пинов в типе"""
+        netlist_project.add_block("custom_block")
+        netlist_project.add_pin_to_block("custom_block", "old_pin1")
+        netlist_project.add_pin_to_block("custom_block", "old_pin2")
+        
+        instance = netlist_project.add_instance_to_block("main", "inst1", "custom_block")
+        assert "old_pin1" in instance.interface_pins
+        assert "old_pin2" in instance.interface_pins
+        
+        net1 = netlist_project.add_net_to_block("main", "net1")
+        net2 = netlist_project.add_net_to_block("main", "net2")
+        netlist_project.connect_pin_to_net_in_block("main", "net1", instance.interface_pins["old_pin1"])
+        netlist_project.connect_pin_to_net_in_block("main", "net2", instance.interface_pins["old_pin2"])
+        
 
-    def test_pin_update_after_primitive_delete(self, netlist_project, main_block):
-        """Тест отключения пинов инстанса от сети при удалении примитива"""
-        inst1 = netlist_project.add_instance_to_block("main", "inst1", "prim1")
-        test_net = netlist_project.add_net_to_block("main", "test_net")
+        netlist_project.rename_pin_in_block("custom_block", "old_pin1", "new_pin1")
+        netlist_project.rename_pin_in_block("custom_block", "old_pin2", "new_pin2")
         
-        netlist_project.connect_pin_to_net_in_block("main", "test_net", inst1.interface_pins["in1"])
-        netlist_project.connect_pin_to_net_in_block("main", "test_net", inst1.interface_pins["out"])
+        assert "new_pin1" in instance.interface_pins
+        assert "new_pin2" in instance.interface_pins
+        assert "old_pin1" not in instance.interface_pins
+        assert "old_pin2" not in instance.interface_pins
         
-        assert len(test_net.pins) == 2
-        
-        netlist_project.remove_instance_from_block("main", "inst1")
-        assert len(test_net.pins) == 0
-
+        assert instance.interface_pins["new_pin1"].net == net1
+        assert instance.interface_pins["new_pin2"].net == net2
 
 
 class TestErrorConditions:
     """Тесты обработки ошибок"""
     
-    def test_noname_objects(self, netlist_project, main_block):
+    def test_nonexistent_objects(self, netlist_project, main_block):
         """Тест операций с несуществующими объектами"""
         with pytest.raises(Exception):
             netlist_project.remove_block("noname")
         
         with pytest.raises(Exception):
             netlist_project.add_instance_to_block("main", "inst1", "notype")
+    
+    def test_invalid_operations_on_nonexistent_blocks(self, netlist_project):
+        """Тест операций на несуществующих блоках"""
+        with pytest.raises(Exception):
+            netlist_project.add_pin_to_block("nonexistent", "pin1")
+        
+        with pytest.raises(Exception):
+            netlist_project.add_instance_to_block("nonexistent", "inst1", "prim1")
+        
+        with pytest.raises(Exception):
+            netlist_project.add_net_to_block("nonexistent", "net1")
 
 
 class TestEdgeCases:
@@ -306,22 +515,23 @@ class TestEdgeCases:
     
     @pytest.fixture
     def edge_case_project(self):
-        """Фикстура для тестов граничных случаев"""
         return NetlistProject("edge_case_test")
     
-    def test_pin_cannot_be_connected_to_multiple_nets(self, edge_case_project):
-        """Тест подключения пина к нескольким сетям одновременно"""
+    def test_mass_operations(self, edge_case_project):
+        """Тест массовых операций с большим количеством объектов"""
         edge_case_project.add_block("main")
         
-        pin = edge_case_project.add_pin_to_block("main", "test_pin")
-        net1 = edge_case_project.add_net_to_block("main", "net1")
-        net2 = edge_case_project.add_net_to_block("main", "net2")
+        for i in range(100):
+            edge_case_project.add_pin_to_block("main", f"pin_{i}")
         
-        edge_case_project.connect_pin_to_net_in_block("main", "net1", pin)
-        assert pin.net == net1
+        for i in range(50):
+            edge_case_project.add_net_to_block("main", f"net_{i}")
         
-        edge_case_project.connect_pin_to_net_in_block("main", "net2", pin)
-        assert pin.net == net2
-        assert len(net1.pins) == 1
-        assert len(net2.pins) == 0
-    
+        edge_case_project.add_primitive_block("simple_gate", primitive_pins=["in", "out"])
+        for i in range(100):
+            edge_case_project.add_instance_to_block("main", f"gate_{i}", "simple_gate")
+        
+        main_block = edge_case_project.blocks["main"]
+        assert len(main_block.interface_pins) == 100
+        assert len(main_block.nets) == 50
+        assert len(main_block.instances) == 100

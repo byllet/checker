@@ -274,11 +274,15 @@ class NetlistProject:
     def add_primitive_block(self, name: str, primitive_pins: List[str]) -> Block:
         self.__already_exists(name, self.__blocks)
 
+        if name not in self.__blocks_instances:
+            self.__blocks_instances[name] = []
+
         self.__blocks[name] = Block(name, is_primitive=True, primitive_pins=primitive_pins)
         return self.__blocks[name]
     
     def remove_primitive_block(self, name: str):
-        del self.__blocks[name]
+        self.remove_block(name)
+
     
     def __already_exists(self, name: str, collection: dict):
         if name in collection:
@@ -294,8 +298,11 @@ class NetlistProject:
         return self.__blocks[name]
 
     def remove_block(self, name: str):
+        for instance in self.__blocks_instances[name]:
+            self.remove_instance_from_block(instance.parent.name, instance.name)
         del self.__blocks_instances[name]
         del self.__blocks[name]
+
 
     def rename_block(self, old_name: str, new_name: str):
         self.__already_exists(new_name, self.__blocks)
