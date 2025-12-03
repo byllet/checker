@@ -13,6 +13,9 @@ def check_incomplete_hierarchy(data: Data, reporter: Reporter):
 
 def check_cycle_hierarchy(data: Data, reporter: Reporter):
     """Проверка на зацикленность иерархии"""
+    if (data.netlist is None):
+        return True
+
     all_blocks = data.netlist.blocks
     global_visited = set()
     
