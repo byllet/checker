@@ -1,6 +1,6 @@
 from data import NetlistProject, Instance, Block
 from loader import Data, NetlistData
-from report import Reporter, Error
+from report import Reporter, Error, ReportEntry
 
 
 def check_incomplete_hierarchy(data: Data, reporter: Reporter):
@@ -24,7 +24,11 @@ def check_cycle_hierarchy(data: Data, reporter: Reporter):
             component_visited = set()
             recursion_stack = set()
             if __has_cycle_in_component(block, component_visited, recursion_stack):
-                reporter.add_error(Error.HIERARCHY_CYCLE)
+                report = ReportEntry(
+                    error = Error.HIERARCHY_CYCLE,
+                    message = f'Cycle detected inside of block {block.name}'
+                )
+                reporter.add_error(report)
                 return False
                 
             global_visited.update(component_visited)
