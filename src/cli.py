@@ -17,7 +17,7 @@ def main(input: str, output: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Netlist Checker')
-    parser.add_argument('--input', type=Path, help='Input netlist file')
+    parser.add_argument('--input', type=Path, required=True, help='Input netlist file')
     parser.add_argument('-o', '--output', type=Path, help='Output report file')
 
     args = parser.parse_args()
