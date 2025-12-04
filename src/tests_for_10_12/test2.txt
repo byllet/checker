@@ -1,0 +1,25 @@
+main:
+pin p1 - n1
+pin p2 - n2
+
+block1:
+pin p1
+pin p2
+pin p3
+pin p4
+
+block2:
+pin p3
+pin p4
+
+instance b1 : block1
+b1.p1 - n1
+b1.p2 - n2
+b1.p1 - n2
+b1.p2 - n1
+b1.p3 - n3
+b1.p4 - n3
+
+instance b2 : block2
+b2.p3 - n3
+b2.p4 - n3

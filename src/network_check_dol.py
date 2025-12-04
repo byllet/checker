@@ -1,29 +1,30 @@
-from loader import Data
+from loader import Data, NetlistData
+from data import NetlistProject, Block
 from report import Reporter, ReportEntry, Error
+from typing import List
 
 def check_network_correctness(data: Data, reporter: Reporter) -> bool:
     """Функция проверки сети на корректность цепей по формату нетлиста,
     является одной из проверок чекера и вызывается в ходе работы чекера"""
     status: bool = True
     
-    if data.errors_after_parse != {}:
+    netlist = data.netlist
+    if netlist is None:
+        return status
+    
+    blocks = netlist.blocks
+
+    root_blocks = __find_root_blocks(blocks)
+    if len(root_blocks) != 1:
+        status = False
         report = ReportEntry(
-            error=Error.SYNTAX_ERROR,
-            message="Cannot start checker checking because of syntax error!"
+            error=Error.MISSING_BLOCK,
+            message="Root block is not found or too many blocks may be root blocks!"
         )
         reporter.add_error(report)
         return False
     
-    netlist = data.netlist
-    if netlist is None:
-        return status
-
-    blocks = netlist.blocks
-    
-    if not __check_missing_blocks(blocks, reporter):
-        status = False
-    
-    if not __check_pin_mismatch(blocks, reporter):
+    if not __check_incorrect_nets(netlist, reporter, root_blocks[0]):
         status = False
     
     return status
@@ -33,110 +34,219 @@ def check_network_connection(data: Data, reporter: Reporter) -> bool:
     """Функция проверки сети на подключение всех цепей
     является одной из проверок чекера и вызывается в ходе работы чекера"""
     status: bool = True
-    
-    if data.errors_after_parse != {}:
-        report = ReportEntry(
-            error=Error.SYNTAX_ERROR,
-            message="Cannot start checker checking because of syntax error!"
-        )
-        reporter.add_error(report)
-        return False
-    
+
     netlist = data.netlist
     if netlist is None:
         return status
-
     blocks = netlist.blocks
-    
-    if not __check_orphaned_nets(blocks, reporter):
+
+    root_blocks = __find_root_blocks(blocks)
+    print(root_blocks)
+    if len(root_blocks) != 1:
+        status = False
+        report = ReportEntry(
+            error=Error.MISSING_BLOCK,
+            message="Root block is not found or too many blocks may be root blocks!"
+        )
+        reporter.add_error(report)
+        return False
+
+    if not __check_orphaned_nets_recursive(netlist, reporter, root_blocks[0]):
         status = False
     
     return status
 
-def __check_missing_blocks(blocks, reporter):
-    """Проверка существования всех используемых блоков,
-    является приватной"""
-    status = True
-    
-    for block_name, block in blocks.items():
+
+def __find_root_blocks(blocks : List[Block]) -> List[str]:
+    """
+    Находит все "корневые" блоки нетлиста.
+    Корневой блок - это блок, который не используется как тип инстанса
+    ни в одном другом блоке
+    Приватная функция
+    """
+
+    blocks_used_as_types = set()
+    for block_name in blocks.keys():
+        block = blocks[block_name]
 
         if block.is_primitive:
             continue
+            
+        for instance in block.instances.values():
+            blocks_used_as_types.add(instance.type.name)
+    
+    root_blocks = [block for block in blocks.keys()
+        if block not in blocks_used_as_types]
+    
+    return root_blocks
 
-        for instance_name, instance in block.instances.items():
-            instance_type_name = instance.type.name
 
-            if instance_type_name in blocks:
-                continue
+def __check_incorrect_nets(netlist : NetlistProject, reporter : Reporter, root_block : str) -> bool:
+    """
+    Рекурсивная проверка корректности цепей.
+    Цепь считается корректной, если она соединяет минимум 2 пина в начальном блоке
+    Ловит 'крюки'
+    Приватная функция
+    """
+    status = True
+    blocks = netlist.blocks
+    
+        
+    main_block = blocks[root_block]
+    
+    def count_real_terminals(current_block, net_name, visited_nets):
+        if (current_block.name, net_name) in visited_nets:
+            return 0
+        
+        visited_nets.add((current_block.name, net_name))
+        
+        if net_name not in current_block.nets:
+            return 0
+            
+        net = current_block.nets[net_name]
+        terminals_count = 0
+        
+        for pin_ref in net.pins.values():
+            if pin_ref.ref_parent is None:
+                if current_block.name == root_block:
+                    terminals_count += 1
+                pass
+                
+            else:
+                instance = pin_ref.ref_parent
+                
+                if instance.type.is_primitive:
+                    continue
+                
+                child_block = instance.type
+                child_pin_name = pin_ref.name
+                    
+                child_net_name = None
+                if child_pin_name in child_block.interface_pins:
+                    child_pin_ref = child_block.interface_pins[child_pin_name]
+                    if child_pin_ref.net:
+                        child_net_name = child_pin_ref.net.name
+                    
+                if child_net_name:
+                    terminals_count += count_real_terminals(child_block, child_net_name, visited_nets)
+                else:
+                    pass
+                        
+        return terminals_count
 
+    for net_name in main_block.nets:
+        visited = set()
+        total_terminals = count_real_terminals(main_block, net_name, visited)
+        
+        if total_terminals < 2:
             report = ReportEntry(
-                error=Error.MISSING_BLOCK,
-                message=f"Block '{instance_type_name}' used in instance '{instance_name}' does not exist",
-                    location=f"{block_name}.{instance_name}"
-                )
+                error=Error.ORPHANED_NET,
+                message=f"Incorrect net '{net_name}' in {root_block}: connects {total_terminals} end points, but should connect at least two",
+                location=f"{root_block}.{net_name}"
+            )
             reporter.add_error(report)
             status = False
-    
+            
     return status
 
 
-def __check_pin_mismatch(blocks, reporter):
-    """Проверка соответствия пинов экземпляров их типам,
-    является приватной"""
+def __check_orphaned_nets_recursive(netlist : NetlistProject, reporter : ReportEntry, root_block : str) -> bool:
     status = True
+    blocks = netlist.blocks
+
+
+    active_nets_global = set()
     
-    for block_name, block in blocks.items():
+    visited_instances = set()
+
+    queue = [(root_block, root_block, set())]
+
+    while queue:
+        block_name, instance_path, active_interface_pins = queue.pop(0)
         
-        if block.is_primitive:
-            continue
-
-        for instance_name, instance in block.instances.items():
-            instance_type = instance.type
-            instance_pins = set(instance.interface_pins.keys())
-            type_pins = set(instance_type.interface_pins.keys())
-            
-            missing_pins = type_pins - instance_pins
-            if missing_pins:
-                report = ReportEntry(
-                    error=Error.PIN_MISMATCH,
-                    message=f"Instance '{instance_name}' missing pins: {', '.join(missing_pins)}",
-                    location=f"{block_name}.{instance_name}"
-                )
-                reporter.add_error(report)
-                status = False
-                
-            extra_pins = instance_pins - type_pins
-            if extra_pins:
-                report = ReportEntry(
-                    error=Error.PIN_MISMATCH,
-                    message=f"Instance '{instance_name}' has extra pins: {', '.join(extra_pins)}",
-                    location=f"{block_name}.{instance_name}"
-                )
-                reporter.add_error(report)
-                status = False
-    
-    return status
-
-
-def __check_orphaned_nets(blocks, reporter):
-    """Проверка неподключенных цепей,
-    является приватной"""
-    status = True
-    
-    for block_name, block in blocks.items():
-        if block.is_primitive:
+        if block_name not in blocks:
             continue
             
+        block = blocks[block_name]
+        visited_instances.add(instance_path)
+        
+        current_block_active_nets = set()
+        
+        if block_name == root_block:
+            for net_name in block.nets:
+                current_block_active_nets.add(net_name)
+                active_nets_global.add(f"{instance_path}.{net_name}")
+        else:
+            for net_name, net in block.nets.items():
+                for pin_ref in net.pins.values():
+                    if pin_ref.ref_parent is None and pin_ref.name in active_interface_pins:
+                        current_block_active_nets.add(net_name)
+                        active_nets_global.add(f"{instance_path}.{net_name}")
+                        break
+        
+        for inst_name, instance in block.instances.items():
+            child_block_name = instance.type.name
+            child_path = f"{instance_path}.{inst_name}"
+            
+            child_active_pins = set()
+            
+            for pin_name, pin_ref in instance.interface_pins.items():
+                if pin_ref.net and pin_ref.net.name in current_block_active_nets:
+                    child_active_pins.add(pin_name)
+            
+            queue.append((child_block_name, child_path, child_active_pins))
+    
+    check_queue = [(root_block, root_block)]
+    
+    while check_queue:
+        block_name, instance_path = check_queue.pop(0)
+        if block_name not in blocks: continue
+        block = blocks[block_name]
+        
         for net_name, net in block.nets.items():
-            pin_count = len(net.pins)
-            
-            if pin_count == 0:
+            if len(net.pins) == 0:
                 report = ReportEntry(
                     error=Error.ORPHANED_NET,
-                    message=f"Net '{net_name}' has no connections",
-                    location=f"{block_name}.{net_name}"
+                    message=f"Net '{net_name}' in '{instance_path}' is empty",
+                    location=f"{instance_path}.{net_name}"
                 )
                 reporter.add_error(report)
                 status = False
-    
+                continue
+
+            global_net_id = f"{instance_path}.{net_name}"
+            
+            if global_net_id not in active_nets_global:
+                report = ReportEntry(
+                    error=Error.ORPHANED_NET,
+                    message=f"Net '{net_name}' in instance '{instance_path}' is not connected to the {root_block} block hierarchy",
+                    location=f"{instance_path}.{net_name}"
+                )
+                reporter.add_error(report)
+                status = False
+        
+        for inst_name, instance in block.instances.items():
+            check_queue.append((instance.type.name, f"{instance_path}.{inst_name}"))
+
     return status
+
+def main():
+    nl = NetlistProject("test")
+    
+    amplifier = nl.add_block("amplifier")
+    nl.add_pin_to_block("amplifier", "input")
+    nl.add_pin_to_block("amplifier", "output")
+    nl.add_pin_to_block("amplifier", "vcc")
+    nl.add_pin_to_block("amplifier", "gnd")
+    
+    main = nl.add_block("main")
+    amp1 = nl.add_instance_to_block("main", "amp1", "amplifier")
+    
+    data = NetlistData(nl)
+    reporter = Reporter()
+    
+    result = check_network_correctness(data, reporter)
+    report = reporter.get_report()
+
+if __name__ == "__main__":
+    main()
