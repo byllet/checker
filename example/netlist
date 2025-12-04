@@ -1,0 +1,11 @@
+main:
+pin main_1 - net_1
+pin main_2 - net_2
+instance controller_1: controller
+controller_1.pin_1 - net_1
+
+controller_1.pin_2 - net_2
+
+controller:
+pin pin_1 - net_2
+pin pin_2 - net_2

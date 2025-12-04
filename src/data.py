@@ -236,7 +236,17 @@ class Net:
 
     @property
     def pins(self) -> dict[str, PinRef]:
-        return {pin.name: pin for pin in self.__pins}
+        pins_dict = {}
+        for pin in self.__pins:
+            parent = pin.ref_parent
+            if isinstance(parent, Instance):
+                key = f"{parent.name}.{pin.name}"
+            elif isinstance(parent, Block):
+                key = pin.name
+            else:
+                key = f"unknown.{pin.name}"
+            pins_dict[key] = pin
+        return pins_dict
     
     @property
     def parent(self) -> Block:
@@ -247,9 +257,21 @@ class Net:
         pin.connect_net(self)
 
     def disconnect_pin(self, pin_name: str):
-        pin = self.pins[pin_name]
-        pin.disconnect_net()
-        self.__pins.remove(pin)
+        pin_to_remove = None
+        for pin in self.__pins:
+            parent = pin.ref_parent
+            if isinstance(parent, Instance):
+                full_name = f"{parent.name}.{pin.name}"
+            else:
+                full_name = pin.name
+            
+            if full_name == pin_name:
+                pin_to_remove = pin
+                break
+        
+        if pin_to_remove:
+            pin_to_remove.disconnect_net()
+            self.__pins.remove(pin_to_remove)
 
     def disconnect_all_pins(self):
         for pin in self.__pins:
@@ -274,11 +296,14 @@ class NetlistProject:
     def add_primitive_block(self, name: str, primitive_pins: List[str]) -> Block:
         self.__already_exists(name, self.__blocks)
 
+        if name not in self.__blocks_instances:
+            self.__blocks_instances[name] = []
+
         self.__blocks[name] = Block(name, is_primitive=True, primitive_pins=primitive_pins)
         return self.__blocks[name]
     
     def remove_primitive_block(self, name: str):
-        del self.__blocks[name]
+        self.remove_block(name)
     
     def __already_exists(self, name: str, collection: dict):
         if name in collection:
@@ -294,6 +319,8 @@ class NetlistProject:
         return self.__blocks[name]
 
     def remove_block(self, name: str):
+        for instance in self.__blocks_instances[name]:
+            self.remove_instance_from_block(instance.parent.name, instance.name)
         del self.__blocks_instances[name]
         del self.__blocks[name]
 
@@ -421,3 +448,7 @@ if __name__ == "__main__":
     print(nl.blocks["main"].nets)
 
 
+    edge_case_project = NetlistProject("edge_case_project")
+    edge_case_project.add_block("main")
+    edge_case_project.add_primitive_block("simple_gate", primitive_pins=["in", "out"])
+    edge_case_project.add_instance_to_block("main", "gate1", "simple_gate")

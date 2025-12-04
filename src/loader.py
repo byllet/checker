@@ -1,6 +1,6 @@
 from data import NetlistProject
 from report import Error, ReportEntry
-from parser import parse
+from parser import Parser
 
 
 class Data:
@@ -25,7 +25,9 @@ class FileData(Data):
         self.__load_from_file(data_path)
     
     def __load_from_file(self, data_path: str):
-        self._ast_tree, self._parse_tree, self._netlist, self._errors_after_parse = parse(data_path)
+        self.__parser =  Parser()
+        self._netlist, errors = self.__parser.load_netlist_from_file(file_path=data_path)
+        self._errors_after_parse = {report.error: report for report in errors}
 
 
 class NetlistData(Data):

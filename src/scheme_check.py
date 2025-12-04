@@ -12,56 +12,10 @@ from loader import *
 
 def check_subcircuit_correctness(data: Data, reporter: Reporter) -> bool:
     """Функция проверки соответствия списка пинов инстанса подсхемы списку пинов блока этой подсхемы"""
-    status = True
-
-    netlist = data.netlist
-    if netlist is None:
-        return status
-
-    blocks = netlist.blocks
-
-    if not __check_instance_pin_compatibility(blocks, reporter):
-        status = False
-
-    return status
-
-
-def __check_instance_pin_compatibility(blocks, reporter):
-    """Проверка соответствия списка пинов инстанса подсхемы списку пинов блока этой подсхемы,
-    является приватной"""
-    status = True
-
-    for block_name, block in blocks.items():
-
-        #if block.is_primitive:
-        #    continue
-
-        for instance_name, instance in block.instances.items():
-            instance_type = instance.type
-            instance_pins = set(instance.interface_pins.keys())
-            type_pins = set(instance_type.interface_pins.keys())
-
-            if instance_pins != type_pins:
-                missing_pins = type_pins - instance_pins
-                extra_pins = instance_pins - type_pins
-
-                error_messages = []
-
-                if missing_pins:
-                    error_messages.append(f"missing pins: {', '.join(sorted(missing_pins))}")
-
-                if extra_pins:
-                    error_messages.append(f"extra pins: {', '.join(sorted(extra_pins))}")
-
-                report = ReportEntry(
-                    error=Error.PIN_MISMATCH,
-                    message=f"Instance '{instance_name}' pin mismatch: {'; '.join(error_messages)}",
-                    location=f"{block_name}.{instance_name}"
-                )
-                reporter.add_error(report)
-                status = False
-
-    return status
+    if Error.PIN_MISMATCH in data.errors_after_parse:
+        reporter.add_error(data.errors_after_parse[Error.PIN_MISMATCH])
+        return False
+    return True
 
 
 def check_pin_connection(data: Data, reporter: Reporter) -> bool:
@@ -91,8 +45,8 @@ def __check_unconnected_block_pins(blocks, reporter):
     status = True
 
     for block_name, block in blocks.items():
-        #if block.is_primitive:
-        #    continue
+        if block.is_primitive:
+            continue
 
         for pin_name, pin_ref in block.interface_pins.items():
             if pin_ref.net is None:
@@ -108,17 +62,27 @@ def __check_unconnected_block_pins(blocks, reporter):
 
 
 def __check_unconnected_instance_pins(blocks, reporter):
-    """Проверка неподключенных пинов инстансов,
-    является приватной"""
+    """Проверка неподключенных пинов инстансов"""
     status = True
 
     for block_name, block in blocks.items():
-
-        #if block.is_primitive:
-        #    continue
+        if block.is_primitive:
+            continue
 
         for instance_name, instance in block.instances.items():
+            instance_type = instance.type
+
             for pin_name, pin_ref in instance.interface_pins.items():
+                # Находим соответствующий пину инстанса внешний пин в блоке-типе
+                corresponding_block_pin = instance_type.interface_pins.get(pin_name)
+
+                # Если соответствующий внешний пин блока-типа подключен,
+                # то внутренний пин инстанса считается подключенным автоматически
+                if corresponding_block_pin and corresponding_block_pin.net is not None:
+                    continue  # Пропускаем проверку - пин считается подключенным
+
+                # Если соответствующий внешний пин не подключен,
+                # проверяем подключение самого пина инстанса
                 if pin_ref.net is None:
                     report = ReportEntry(
                         error=Error.DISCONNECTED_PIN,
