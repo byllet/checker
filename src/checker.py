@@ -32,9 +32,9 @@ class FileChecker:
 
 class NetlistChecker:
     def __init__(self, netlist: NetlistProject):
+        self.__netlist = netlist
         self.__data = NetlistData(self.__netlist)
         self.__strategies = deepcopy(STRATEGIES_NETLIST)
-        self.__netlist = netlist
 
     def check(self) -> Report:
         return _check(self.__strategies, self.__data)
