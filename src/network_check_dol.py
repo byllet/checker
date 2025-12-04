@@ -19,7 +19,7 @@ def check_network_correctness(data: Data, reporter: Reporter) -> bool:
         status = False
         report = ReportEntry(
             error=Error.MISSING_BLOCK,
-            message="Root block is not found or too many blocks may be root blocks!"
+            message="Root block is not found or too many blocks may be the root block"
         )
         reporter.add_error(report)
         return False
@@ -46,7 +46,7 @@ def check_network_connection(data: Data, reporter: Reporter) -> bool:
         status = False
         report = ReportEntry(
             error=Error.MISSING_BLOCK,
-            message="Root block is not found or too many blocks may be root blocks!"
+            message="Root block is not found or too many blocks may be the root block"
         )
         reporter.add_error(report)
         return False
@@ -229,24 +229,3 @@ def __check_orphaned_nets_recursive(netlist : NetlistProject, reporter : ReportE
             check_queue.append((instance.type.name, f"{instance_path}.{inst_name}"))
 
     return status
-
-def main():
-    nl = NetlistProject("test")
-    
-    amplifier = nl.add_block("amplifier")
-    nl.add_pin_to_block("amplifier", "input")
-    nl.add_pin_to_block("amplifier", "output")
-    nl.add_pin_to_block("amplifier", "vcc")
-    nl.add_pin_to_block("amplifier", "gnd")
-    
-    main = nl.add_block("main")
-    amp1 = nl.add_instance_to_block("main", "amp1", "amplifier")
-    
-    data = NetlistData(nl)
-    reporter = Reporter()
-    
-    result = check_network_correctness(data, reporter)
-    report = reporter.get_report()
-
-if __name__ == "__main__":
-    main()
