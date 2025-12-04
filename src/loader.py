@@ -1,5 +1,5 @@
-from data import NetlistProject
-from report import Error, ReportEntry
+from netlist_model import NetlistProject
+from .report import Error, ReportEntry
 from parser import Parser
 
 

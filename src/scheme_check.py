@@ -1,6 +1,6 @@
-from data import *
-from report import *
-from loader import *
+from netlist_model import *
+from .report import *
+from .loader import *
 
 
 """

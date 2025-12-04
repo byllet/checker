@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 
-from checker import FileChecker
+from .checker import FileChecker
 
 
 def main(input: str, output: str):

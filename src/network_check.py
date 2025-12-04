@@ -1,5 +1,5 @@
-from loader import Data
-from report import Reporter, ReportEntry, Error
+from .loader import Data
+from .report import Reporter, ReportEntry, Error
 
 def check_network_correctness(data: Data, reporter: Reporter) -> bool:
     """Функция проверки сети на корректность цепей по формату нетлиста,

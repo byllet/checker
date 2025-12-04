@@ -1,11 +1,11 @@
 from copy import deepcopy
 from typing import  List
 
-from report import Reporter, Report
-from loader import Data, FileData, NetlistData
-from data import NetlistProject
+from .report import Reporter, Report
+from .loader import Data, FileData, NetlistData
+from netlist_model import NetlistProject
 
-from config import STRATEGIES_FILE, STRATEGIES_NETLIST
+from .config import STRATEGIES_FILE, STRATEGIES_NETLIST
 
 def _check(strategies: List[callable], data: Data) -> Report:
     reporter = Reporter()
