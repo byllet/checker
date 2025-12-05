@@ -1,6 +1,7 @@
 from data import NetlistProject
-from report import Error, ReportEntry
+from report import ReportEntry
 from parser import Parser
+from parser.resources.report import Error
 
 
 class Data:

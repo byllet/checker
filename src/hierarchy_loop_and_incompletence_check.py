@@ -1,6 +1,7 @@
 from data import NetlistProject, Instance, Block
 from loader import Data, NetlistData
-from report import Reporter, Error, ReportEntry
+from report import Reporter, ReportEntry
+from parser.resources.report import Error
 
 
 def check_incomplete_hierarchy(data: Data, reporter: Reporter):

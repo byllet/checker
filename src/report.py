@@ -1,21 +1,12 @@
 from dataclasses import dataclass
 from enum import Enum
 from typing import  Optional, List
+from parser.resources.report import Error
 
 
 class Status(Enum):
     OK = "OK"
     ERROR = "ERROR"
-
-
-class Error(Enum):
-    SYNTAX_ERROR = "SYNTAX_ERROR"
-    HIERARCHY_CYCLE = "HIERARCHY_CYCLE"
-    MISSING_BLOCK = "MISSING_BLOCK"
-    PIN_MISMATCH = "PIN_MISMATCH"
-    DISCONNECTED_PIN = "DISCONNECTED_PIN"
-    ORPHANED_NET = "ORPHANED_NET"
-    DUPLICATE_NAME = "DUPLICATE_NAME"
 
 
 @dataclass

@@ -1,5 +1,6 @@
 from data import *
-from report import *
+from report import ReportEntry, Reporter
+from parser.resources.report import Error
 from loader import *
 
 
@@ -12,6 +13,7 @@ from loader import *
 
 def check_subcircuit_correctness(data: Data, reporter: Reporter) -> bool:
     """Функция проверки соответствия списка пинов инстанса подсхемы списку пинов блока этой подсхемы"""
+
     if Error.PIN_MISMATCH in data.errors_after_parse:
         reporter.add_error(data.errors_after_parse[Error.PIN_MISMATCH])
         return False
