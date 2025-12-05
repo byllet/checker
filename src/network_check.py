@@ -1,7 +1,8 @@
 from loader import Data, NetlistData
 from data import NetlistProject, Block
-from report import Reporter, ReportEntry, Error
+from report import Reporter, ReportEntry
 from typing import List
+from parser.resources.report import Error
 
 def check_network_correctness(data: Data, reporter: Reporter) -> bool:
     """Функция проверки сети на корректность цепей по формату нетлиста,
@@ -41,7 +42,7 @@ def check_network_connection(data: Data, reporter: Reporter) -> bool:
     blocks = netlist.blocks
 
     root_blocks = __find_root_blocks(blocks)
-    print(root_blocks)
+
     if len(root_blocks) != 1:
         status = False
         report = ReportEntry(
