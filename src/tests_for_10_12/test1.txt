@@ -1,0 +1,10 @@
+main:
+p1 - n1
+
+block1:
+pin p1
+pin p2
+
+instance b1 : block1
+b1.p1 - n1
+b1.p2 - n1
