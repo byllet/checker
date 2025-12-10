@@ -1,7 +1,8 @@
 from loader import Data, NetlistData
-from data import NetlistProject, Block
-from report import Reporter, ReportEntry, Error
+from data import NetlistProject, Block, Instance
+from report import Reporter, ReportEntry
 from typing import List
+from parser.resources.report import Error
 
 def check_network_correctness(data: Data, reporter: Reporter) -> bool:
     """Функция проверки сети на корректность цепей по формату нетлиста,
@@ -24,7 +25,7 @@ def check_network_correctness(data: Data, reporter: Reporter) -> bool:
         reporter.add_error(report)
         return False
     
-    if not __check_incorrect_nets(netlist, reporter, root_blocks[0]):
+    if not __check_multiple_nets_per_pin(blocks, reporter):
         status = False
     
     return status
@@ -41,7 +42,7 @@ def check_network_connection(data: Data, reporter: Reporter) -> bool:
     blocks = netlist.blocks
 
     root_blocks = __find_root_blocks(blocks)
-    print(root_blocks)
+
     if len(root_blocks) != 1:
         status = False
         report = ReportEntry(
@@ -51,7 +52,7 @@ def check_network_connection(data: Data, reporter: Reporter) -> bool:
         reporter.add_error(report)
         return False
 
-    if not __check_orphaned_nets_recursive(netlist, reporter, root_blocks[0]):
+    if not __check_orphaned_nets(netlist, reporter, root_blocks[0]):
         status = False
     
     return status
@@ -81,7 +82,7 @@ def __find_root_blocks(blocks : List[Block]) -> List[str]:
     return root_blocks
 
 
-def __check_incorrect_nets(netlist : NetlistProject, reporter : Reporter, root_block : str) -> bool:
+def __check_orphaned_nets(netlist : NetlistProject, reporter : Reporter, root_block : str) -> bool:
     """
     Рекурсивная проверка корректности цепей.
     Цепь считается корректной, если она соединяет минимум 2 пина в начальном блоке
@@ -138,10 +139,10 @@ def __check_incorrect_nets(netlist : NetlistProject, reporter : Reporter, root_b
         visited = set()
         total_terminals = count_real_terminals(main_block, net_name, visited)
         
-        if total_terminals < 2:
+        if total_terminals == 0:
             report = ReportEntry(
                 error=Error.ORPHANED_NET,
-                message=f"Incorrect net '{net_name}' in {root_block}: connects {total_terminals} end points, but should connect at least two",
+                message=f"Incorrect net '{net_name}' in {root_block}: connects {total_terminals} end points",
                 location=f"{root_block}.{net_name}"
             )
             reporter.add_error(report)
@@ -150,82 +151,51 @@ def __check_incorrect_nets(netlist : NetlistProject, reporter : Reporter, root_b
     return status
 
 
-def __check_orphaned_nets_recursive(netlist : NetlistProject, reporter : ReportEntry, root_block : str) -> bool:
+
+def __check_multiple_nets_per_pin(blocks: List[Block], reporter: Reporter) -> bool:
+    """Функция проверки подключения пина к нескольким цепям.
+    
+    Проверяет, что каждый пин подключен максимум к одной цепи.
+    """
     status = True
-    blocks = netlist.blocks
 
-
-    active_nets_global = set()
-    
-    visited_instances = set()
-
-    queue = [(root_block, root_block, set())]
-
-    while queue:
-        block_name, instance_path, active_interface_pins = queue.pop(0)
-        
-        if block_name not in blocks:
+    for block_name, block in blocks.items():
+        if block.is_primitive:
             continue
-            
-        block = blocks[block_name]
-        visited_instances.add(instance_path)
-        
-        current_block_active_nets = set()
-        
-        if block_name == root_block:
-            for net_name in block.nets:
-                current_block_active_nets.add(net_name)
-                active_nets_global.add(f"{instance_path}.{net_name}")
-        else:
-            for net_name, net in block.nets.items():
-                for pin_ref in net.pins.values():
-                    if pin_ref.ref_parent is None and pin_ref.name in active_interface_pins:
-                        current_block_active_nets.add(net_name)
-                        active_nets_global.add(f"{instance_path}.{net_name}")
-                        break
-        
-        for inst_name, instance in block.instances.items():
-            child_block_name = instance.type.name
-            child_path = f"{instance_path}.{inst_name}"
-            
-            child_active_pins = set()
-            
-            for pin_name, pin_ref in instance.interface_pins.items():
-                if pin_ref.net and pin_ref.net.name in current_block_active_nets:
-                    child_active_pins.add(pin_name)
-            
-            queue.append((child_block_name, child_path, child_active_pins))
-    
-    check_queue = [(root_block, root_block)]
-    
-    while check_queue:
-        block_name, instance_path = check_queue.pop(0)
-        if block_name not in blocks: continue
-        block = blocks[block_name]
-        
-        for net_name, net in block.nets.items():
-            if len(net.pins) == 0:
-                report = ReportEntry(
-                    error=Error.ORPHANED_NET,
-                    message=f"Net '{net_name}' in '{instance_path}' is empty",
-                    location=f"{instance_path}.{net_name}"
-                )
-                reporter.add_error(report)
-                status = False
-                continue
 
-            global_net_id = f"{instance_path}.{net_name}"
+        if not __check_pin_multiple_nets_in_block(block, reporter):
+            status = False
+
+    return status
+
+
+def __check_pin_multiple_nets_in_block(block: Block, reporter: Reporter) -> bool:
+    """Проверка подключения пинов к нескольким цепям в блоке"""
+    status = True
+    pin_to_nets = {}
+    
+    for net_name, net in block.nets.items():
+        for pin_ref in net._Net__pins:
+            if pin_ref.ref_parent is None:
+                pin_id = f"interface.{pin_ref.name}"
+            elif isinstance(pin_ref.ref_parent, Instance):
+                pin_id = f"{pin_ref.ref_parent.name}.{pin_ref.name}"
+            else:
+                pin_id = f"interface.{pin_ref.name}"
             
-            if global_net_id not in active_nets_global:
-                report = ReportEntry(
-                    error=Error.ORPHANED_NET,
-                    message=f"Net '{net_name}' in instance '{instance_path}' is not connected to the {root_block} block hierarchy",
-                    location=f"{instance_path}.{net_name}"
-                )
-                reporter.add_error(report)
-                status = False
-        
-        for inst_name, instance in block.instances.items():
-            check_queue.append((instance.type.name, f"{instance_path}.{inst_name}"))
+            if pin_id not in pin_to_nets:
+                pin_to_nets[pin_id] = []
+            pin_to_nets[pin_id].append(net_name)
+    
+    for pin_id, net_names in pin_to_nets.items():
+        if len(set(net_names)) > 1:
+            unique_nets = sorted(set(net_names))
+            report = ReportEntry(
+                error=Error.PIN_MISMATCH,
+                message=f"Pin '{pin_id}' is connected to multiple nets: {', '.join(unique_nets)}",
+                location=f"{block.name}.{pin_id}"
+            )
+            reporter.add_error(report)
+            status = False
 
     return status
