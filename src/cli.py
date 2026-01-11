@@ -5,7 +5,7 @@ from checker import FileChecker
 
 
 def main(input: str, output: str):
-    checker = FileChecker(input)
+    checker = FileChecker(str(input))
     report = checker.check()
 
     if output:
